@@ -17,6 +17,9 @@ def parse_args():
     parser.add_argument("--name",
                         help='Name for the cluster.',
                         required=True)
+    parser.add_argument("--job",
+                        help='Job name override.',
+                        default=None)
     parser.add_argument("--filepath",
                         help='Path of the manifest file on disk.',
                         required=True)

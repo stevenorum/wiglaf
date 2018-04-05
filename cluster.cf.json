@@ -224,7 +224,8 @@
                 "Environment":{
                     "Variables":{
                         "SNS_TOPIC":{"Fn::If":["EmailAddressProvided",{"Ref":"Topic"},{"Ref":"AWS::NoValue"}]},
-                        "STACK_NAME":{"Ref":"AWS::StackName"}
+                        "STACK_NAME":{"Ref":"AWS::StackName"},
+                        "CLUSTER_NAME":{"Ref":"ClusterName"}
                     }
                 },
                 "Handler":"handlers.lambda_handler",

@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+
+import wiglaf.cli
+
+cli = wiglaf.cli.WiglafDispatcher()
+
+cli.do_stuff()

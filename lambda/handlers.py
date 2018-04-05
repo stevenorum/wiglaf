@@ -3,13 +3,15 @@
 print("Function loading.")
 
 import boto3
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import traceback
 
+def cluster_name():
+    return os.getenv("CLUSTER_NAME", os.getenv("STACK_NAME"))
+
 def lambda_handler(event, context):
-    # print("Received event:")
-    # print(json.dumps(event))
     for record in event["Records"]:
         try:
             obj_key = record["s3"]["object"]["key"]
@@ -50,10 +52,6 @@ def process_manifest(bucket_name, obj_key):
         "#!/bin/bash",
         "",
         "InstanceId=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)",
-        # "sudo apt-get install -y python3",
-        # "wget -O /tmp/get-pip.py 'https://bootstrap.pypa.io/get-pip.py'",
-        # "sudo python3 /tmp/get-pip.py",
-        # "sudo pip install awscli --upgrade",
         "mkdir -p /tmp/wiglaf",
         "cd /tmp/wiglaf",
         "echo \"$InstanceId\" > /tmp/$InstanceId",
@@ -64,7 +62,7 @@ def process_manifest(bucket_name, obj_key):
             checkpoints[name] = checkpoints["__NEXT__"]
             checkpoints["__NEXT__"] += 1
         index = checkpoints[name]
-        key = "jobs/$JobName/checkpoints/$InstanceId.{index}-{step}-{name}".format(index=index, step=step, name=name)
+        key = "jobs/$JobName/checkpoints/$InstanceId.{index}-{name}-{step}".format(index=index, step=step, name=name)
         return "date > /tmp/checkpoint && aws s3 cp /tmp/checkpoint s3://$Bucket/{key}".format(key=key)
     script_lines.append(checkpoint("DownloadingFiles","begin"))
     for filename in manifest["FilesToDownload"]:
@@ -131,7 +129,8 @@ def process_result(bucket_name, job_name, *args, **kwargs):
     s3 = boto3.client('s3')
 
     manifest_key = "jobs/{job_name}/resources/wiglaf_manifest.json".format(job_name=job_name)
-    manifest = json.loads(s3.get_object(Bucket=bucket_name, Key=manifest_key)["Body"].read().decode("utf-8"))
+    manifest_object = s3.get_object(Bucket=bucket_name, Key=manifest_key)
+    manifest = json.loads(manifest_object["Body"].read().decode("utf-8"))
 
     batch_count = manifest["NumberOfBatches"]
 
@@ -143,6 +142,7 @@ def process_result(bucket_name, job_name, *args, **kwargs):
         )
         json.loads(obj['Body'].read().decode('utf-8'))
         # If we get to this point, it means that the results.json file already exists, which means we're done.
+        stop_cluster()
         return
     except:
         pass
@@ -171,25 +171,44 @@ def process_result(bucket_name, job_name, *args, **kwargs):
     else:
         print("Goal met.  Tearing down cluster.")
         stop_cluster()
-        links = [s3.generate_presigned_url(ClientMethod='get_object',Params={'Bucket':bucket_name,'Key':obj['Key']},ExpiresIn=60*60*24) for obj in objects[:batch_count]]
+        links = [s3.generate_presigned_url(ClientMethod='get_object',Params={'Bucket':bucket_name,'Key':obj['Key']},ExpiresIn=60*60*24*7) for obj in objects]
         body = json.dumps(links, indent=2, sort_keys=True).encode('utf-8')
         s3.put_object(Body=body, Bucket=bucket_name, Key=result_aggregate_key)
-        agg_link = s3.generate_presigned_url(ClientMethod='get_object',Params={'Bucket':bucket_name,'Key':result_aggregate_key},ExpiresIn=60*60*24)
         if sns_topic:
-            message = "Job '{}' done.  Output file:\n\n{}".format(job_name, agg_link)
+            start_dt = manifest_object["LastModified"]
+            end_dt = datetime.now(timezone.utc)
+            message_lines = [
+                "Job '{}' finished".format(job_name),
+                "",
+                "Cluster: {}".format(cluster_name()),
+                "",
+                "Started: {}".format(start_dt.strftime("%a %d %H:%M:%S UTC")),
+                "Ended: {}".format(end_dt.strftime("%a %d %H:%M:%S UTC")),
+                "Duration: {}".format(pretty_delta(end_dt - start_dt)),
+                "",
+                "Links to output files:",
+                ""
+            ] + [l+"\n" for l in links] + ["The above links are valid for ~7 days after when the job finished."]
+            message = '\n'.join(message_lines)
             subject = "Job '{}' done".format(job_name)
             boto3.client("sns").publish(TopicArn=sns_topic, Message=message, Subject=subject)
     pass
 
-# def old_lambda_handler(event, context):
-#     topic_arn = "arn:aws:sns:us-east-1:190692641744:text-me"
-#     print(json.dumps(event, sort_keys=True))
-#     obj_key = event["Records"][0]["s3"]["object"]["key"]
-#     obj_bucket = event["Records"][0]["s3"]["bucket"]["name"]
-#     subject = "S3 upload"
-#     message = "File '{}' uploaded to bucket '{}'".format(obj_key, obj_bucket)
-#     print("Publishing the following message to SNS:")
-#     print(message)
-#     sns = boto3.client("sns")
-#     sns.publish(TopicArn=topic_arn, Message=message, Subject=subject)
-#     return ''
+def pretty_delta(td):
+    MINUTE = 60
+    HOUR = MINUTE * 60
+    DAY = HOUR * 24
+    days, drem = divmod(td.seconds, DAY)
+    hours, hrem = divmod(drem, HOUR)
+    minutes, mrem = divmod(hrem, MINUTE)
+    seconds = mrem
+    pretty = ""
+    if days:
+        pretty += "{} day{}{}".format(days, "" if days == 1 else "s", "" if drem == 0 else ", ")
+    if hours:
+        pretty += "{} hour{}{}".format(hours, "" if hours == 1 else "s", "" if hrem == 0 else ", ")
+    if minutes:
+        pretty += "{} minute{}{}".format(minutes, "" if minutes == 1 else "s", "" if mrem == 0 else ", ")
+    if seconds:
+        pretty += "{} second{}".format(seconds, "" if seconds == 1 else "s")
+    return "{} ({})".format(pretty, str(td))

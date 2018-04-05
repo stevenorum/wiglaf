@@ -9,5 +9,6 @@ setup(
     author='Steve Norum',
     author_email='sn@littlestviking.com',
     url='https://github.com/stevenorum/wiglaf',
-    source_dir='src'
+    source_dir='src',
+    script_dir='scripts'
 )
