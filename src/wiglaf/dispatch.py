@@ -1,30 +1,58 @@
 #!/usr/bin/env python3
 
 import boto3
+import copy
+import logging
+import sys
+import wiglaf.cloudformation
+
 from calvin import json
 
+defaults = {
+    "region":"us-east-1"
+}
+
+required = [
+    "region","profile","cluster_name"
+]
+
 def load_config(**kwargs):
-    conf = {}
+    print(kwargs)
+    conf = copy.deepcopy(defaults)
     if kwargs.get("config"):
-        conf = json.loadf(kwargs["config"])
-    conf.update(kwargs)
+        conf.update(json.loadf(kwargs["config"]))
+    for k in kwargs:
+        if kwargs[k]:
+            conf[k] = kwargs[k]
+    missing = [r for r in required if not conf.get(r)]
+    if missing:
+        raise RuntimeError("Required argument(s) missing: {}".format(", ".join(missing)))
     return conf
 
 class Wiglaf(object):
 
     def __init__(self, **kwargs):
         self.config = load_config(**kwargs)
+        root_logger = logging.getLogger()
+        if self.config.get("verbosity"):
+            root_logger.setLevel(logging.DEBUG)
+        else:
+            root_logger.setLevel(logging.INFO)
+        boto3.setup_default_session(region_name=self.config["region"], profile_name=self.config["profile"])
+        for noisy in ('botocore', 'boto3', 'requests'):
+            logging.getLogger(noisy).level = logging.WARN
+            pass
 
     def create(self, *args, **kwargs):
         print("create called")
-        pass
+        return wiglaf.cloudformation.launch_cluster_stack(skip_create=False, **self.config)
 
     def update(self, *args, **kwargs):
         print("update called")
-        pass
+        return wiglaf.cloudformation.launch_cluster_stack(skip_create=True, **self.config)
 
     def describe(self, *args, **kwargs):
-        print("describe called")
+        print("describe called; currently a no-op")
         pass
 
     def generate_manifest(self, *args, **kwargs):
