@@ -50,7 +50,7 @@ def process_manifest(bucket_name, obj_key):
         script_lines.append(command)
     for filename in manifest["FilesToUpload"]:
         script_lines.append("aws s3 cp /tmp/wiglaf/{filename} s3://$Bucket/results/$JobName/{filename}.$InstanceId".format(filename=filename))
-    for logfile in ["cloud-init.log","cloud-init-output.log","messages"]:
+    for logfile in ["cloud-init.log","cloud-init-output.log","syslog"]:
         script_lines.append("aws s3 cp /var/log/{logfile} s3://$Bucket/logs/$JobName/$InstanceId/{logfile}".format(logfile=logfile))
     script_lines.append("aws ec2 terminate-instances --instance-ids $InstanceId")
     startup_script = "\n".join(script_lines)

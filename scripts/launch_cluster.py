@@ -24,6 +24,9 @@ def parse_args():
     parser.add_argument("--email",
                         help='Email address to notify of completed jobs.',
                         default="")
+    parser.add_argument("--keyname",
+                        help='Name of an EC2 SSH keypair to use for the nodes.',
+                        default="")
     return parser.parse_args()
 
 def wait_for_stack(cf, name):
@@ -68,11 +71,12 @@ def update_stack(name, template, params):
     )
     return wait_for_stack(cf, name)
 
-def launch_cluster_stack(name, email):
+def launch_cluster_stack(name, email, keyname):
     template = json.loadf("cluster.cf.json")
     params = {
         "ClusterName":name,
-        "EmailAddress":email
+        "EmailAddress":email,
+        "KeyName":keyname
     }
     transitional_template = copy.deepcopy(template)
     del transitional_template["Resources"]["DataBucket"]["Properties"]["NotificationConfiguration"]
@@ -92,7 +96,7 @@ def launch_cluster_stack(name, email):
 def main():
     args = parse_args()
     boto3.setup_default_session(region_name=args.region, profile_name=args.profile)
-    launch_cluster_stack(args.name, args.email)
+    launch_cluster_stack(args.name, args.email, args.keyname)
     pass
 
 if __name__ == "__main__":
