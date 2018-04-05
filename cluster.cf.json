@@ -180,9 +180,9 @@
                                 "wget -O /tmp/get-pip.py 'https://bootstrap.pypa.io/get-pip.py'",
                                 "sudo python3 /tmp/get-pip.py",
                                 "sudo pip install awscli --upgrade",
-                                {"Fn::Sub":"aws s3 cp s3://${DataBucket}/do_stuff.script /tmp/do_stuff.script"},
-                                "chmod +x /tmp/do_stuff.script",
-                                "/tmp/do_stuff.script",
+                                {"Fn::Sub":"aws s3 cp s3://${DataBucket}/do_stuff.sh /tmp/do_stuff.sh"},
+                                "chmod +x /tmp/do_stuff.sh",
+                                "/tmp/do_stuff.sh",
                                 ""
                             ]
                         ]
