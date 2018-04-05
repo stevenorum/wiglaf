@@ -8,24 +8,31 @@ import os
 import traceback
 
 def lambda_handler(event, context):
-    try:
-        obj_key = event["Records"][0]["s3"]["object"]["key"]
-        bucket_name = event["Records"][0]["s3"]["bucket"]["name"]
-        print("Received event:")
-        print(json.dumps(event))
-        if obj_key == "manifest.json":
-            print("Processing manifest.json file")
-            return process_manifest(bucket_name, obj_key)
-        elif obj_key.startswith("results/") and not obj_key.endswith("/wiglaf_manifest.json"):
-            job_name = obj_key.split("/")[1]
-            print("Processing result for job {}".format(job_name))
-            return process_result(bucket_name, job_name)
-        else:
-            print("We don't care about this event.")
-            pass
-    except Exception as e:
-        traceback.print_exc()
-        raise e
+    print("Received event:")
+    print(json.dumps(event))
+    for record in event["Records"]:
+        try:
+            obj_key = record["s3"]["object"]["key"]
+            bucket_name = record["s3"]["bucket"]["name"]
+            print("Handling {}/{}".format(bucket_name, obj_key))
+            if obj_key == "manifest.json":
+                print("Processing manifest.json file")
+                return process_manifest(bucket_name, obj_key)
+            elif obj_key.startswith("results/") and not obj_key.endswith("/wiglaf_manifest.json"):
+                job_name = obj_key.split("/")[1]
+                print("Processing result for job {}".format(job_name))
+                return process_result(bucket_name, job_name)
+            elif obj_key.startswith("terminate/"):
+                instance_id = obj_key.split("/")[-1]
+                print("Terminating instance {}".format(instance_id))
+                boto3.client('ec2').terminate_instances(InstanceIds=[instance_id])
+                boto3.client('s3').delete_object(Bucket=bucket_name, Key=obj_key)
+                pass
+            else:
+                print("We don't care about this event.")
+                pass
+        except Exception as e:
+            traceback.print_exc()
 
 def process_manifest(bucket_name, obj_key):
     s3 = boto3.client('s3')
@@ -46,13 +53,25 @@ def process_manifest(bucket_name, obj_key):
         ""]
     for filename in manifest["FilesToDownload"]:
         script_lines.append("aws s3 cp s3://$Bucket/resources/$JobName/{filename} /tmp/wiglaf/{filename}".format(filename=filename))
-    for command in manifest["CommandsToRun"]:
-        script_lines.append(command)
-    for filename in manifest["FilesToUpload"]:
-        script_lines.append("aws s3 cp /tmp/wiglaf/{filename} s3://$Bucket/results/$JobName/{filename}.$InstanceId".format(filename=filename))
-    for logfile in ["cloud-init.log","cloud-init-output.log","syslog"]:
-        script_lines.append("aws s3 cp /var/log/{logfile} s3://$Bucket/logs/$JobName/$InstanceId/{logfile}".format(logfile=logfile))
-    script_lines.append("aws ec2 terminate-instances --instance-ids $InstanceId")
+    if "InstallCommands" in manifest:
+        script_lines.append("echo \"Starting installation of dependencies at $(date)\"")
+        for command in manifest["InstallCommands"]:
+            script_lines.append("echo Executing command \'{}\'".format(json.dumps(command)))
+            script_lines.append(command)
+        script_lines.append("echo \"Finished installation of dependencies at $(date)\"")
+    for iteration in range(manifest.get("RunsPerNode",1)):
+        script_lines.append("echo \"Starting execution #{} of commands at $(date)\"".format(iteration+1))
+        for command in manifest["CommandsToRun"]:
+            script_lines.append("echo Executing command \'{}\'".format(json.dumps(command)))
+            script_lines.append(command)
+        script_lines.append("echo \"Finishedexecution #{} of commands at $(date)\"".format(iteration+1))
+        for filename in manifest["FilesToUpload"]:
+            script_lines.append("aws s3 cp /tmp/wiglaf/{filename} s3://$Bucket/results/$JobName/{filename}.{iteration}.$InstanceId".format(filename=filename, iteration=iteration))
+        for logfile in ["cloud-init.log","cloud-init-output.log","syslog"]:
+            script_lines.append("aws s3 cp /var/log/{logfile} s3://$Bucket/logs/$JobName/$InstanceId/{logfile}".format(logfile=logfile))
+    script_lines.append("AZ=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)")
+    script_lines.append("REGION=v${AZ::-1}")
+    script_lines.append("aws --region $REGION ec2 terminate-instances --instance-ids $InstanceId")
     startup_script = "\n".join(script_lines)
     s3.put_object(Bucket=bucket_name, Key="do_stuff.sh", Body=startup_script.encode("utf-8"))
     s3.put_object(Bucket=bucket_name, Key="resources/{job_name}/wiglaf_manifest.json".format(job_name=manifest["JobName"]), Body=manifest_body)

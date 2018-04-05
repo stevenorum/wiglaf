@@ -27,6 +27,12 @@ def parse_args():
     parser.add_argument("--keyname",
                         help='Name of an EC2 SSH keypair to use for the nodes.',
                         default="")
+    parser.add_argument("--instancetype",
+                        help='EC2 instance type to use.',
+                        default="c5.2xlarge")
+    parser.add_argument("--imageid",
+                        help='EC2 image to use.',
+                        default="ami-aab1e9d0")
     return parser.parse_args()
 
 def wait_for_stack(cf, name):
@@ -71,12 +77,14 @@ def update_stack(name, template, params):
     )
     return wait_for_stack(cf, name)
 
-def launch_cluster_stack(name, email, keyname):
+def launch_cluster_stack(name, email, keyname, imageid, instancetype):
     template = json.loadf("cluster.cf.json")
     params = {
         "ClusterName":name,
         "EmailAddress":email,
-        "KeyName":keyname
+        "KeyName":keyname,
+        "ImageId":imageid,
+        "InstanceType":instancetype
     }
     transitional_template = copy.deepcopy(template)
     del transitional_template["Resources"]["DataBucket"]["Properties"]["NotificationConfiguration"]
@@ -96,7 +104,7 @@ def launch_cluster_stack(name, email, keyname):
 def main():
     args = parse_args()
     boto3.setup_default_session(region_name=args.region, profile_name=args.profile)
-    launch_cluster_stack(args.name, args.email, args.keyname)
+    launch_cluster_stack(args.name, args.email, args.keyname, args.imageid, args.instancetype)
     pass
 
 if __name__ == "__main__":

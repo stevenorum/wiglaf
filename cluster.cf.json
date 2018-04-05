@@ -14,7 +14,7 @@
         },
         "MaxInstanceCount":{
             "Type":"Number",
-            "Default":"10"
+            "Default":"5"
         },
         "EmailAddress":{
             "Type":"String",
