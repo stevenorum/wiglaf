@@ -31,7 +31,7 @@ def clear_results(stack_name, job_name):
     outputs = {op["OutputKey"]:op["OutputValue"] for op in stack["Outputs"]}
     # Should update this to look through the stack resources and grab all buckets, but this'll work for now.
     bucket = outputs["DataBucket"]
-    prefix = "results/{}/".format(job_name)
+    prefix = "jobs/{}/results/".format(job_name)
     response = s3.list_objects_v2(
         Bucket=bucket,
         Prefix=prefix,

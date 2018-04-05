@@ -70,14 +70,10 @@ def list_results(stack_name, job_name):
     stack = cf.describe_stacks(StackName=stack_name)["Stacks"][0]
     outputs = {op["OutputKey"]:op["OutputValue"] for op in stack["Outputs"]}
     bucket = outputs["DataBucket"]
-    prefix = "results/{}/".format(job_name)
-    results = list_all(s3, bucket, "results/{}/".format(job_name))
-    resources = list_all(s3, bucket, "resources/{}/".format(job_name))
-    logs = list_all(s3, bucket, "logs/{}/".format(job_name))
-    fobjs = lambda x: [format_object(o) for o in x]
-    print("\n".join(fobjs(resources)))
-    print("\n".join(fobjs(results)))
-    print("\n".join(fobjs(logs)))
+    prefix = "jobs/{}/".format(job_name)
+    files = list_all(s3, bucket, prefix)
+    fstrings = [format_object(f) for f in files]
+    print("\n".join(fstrings))
 
 def main():
     args = parse_args()

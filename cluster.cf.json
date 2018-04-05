@@ -223,7 +223,7 @@
                 },
                 "Environment":{
                     "Variables":{
-                        "SNS_TOPIC":{"Fn::If":["EmailAddressProvided",{"Ref":"EmailAddress"},{"Ref":"AWS::NoValue"}]},
+                        "SNS_TOPIC":{"Fn::If":["EmailAddressProvided",{"Ref":"Topic"},{"Ref":"AWS::NoValue"}]},
                         "STACK_NAME":{"Ref":"AWS::StackName"}
                     }
                 },

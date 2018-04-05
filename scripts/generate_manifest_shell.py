@@ -34,7 +34,9 @@ def main():
         "FilesToDownload":os.listdir(args.directory),
         "CommandsToRun":[args.command],
         "FilesToUpload":[args.result],
-        "NumberOfBatches":args.number
+        "NumberOfBatches":args.number,
+        "RunsPerNode":args.number,
+        "InstallCommands":["echo 'Commands that only need run once per node go here (e.g., installing libraries).'"]
     }
     fname = "manifest.{}.json".format(args.job)
     json.dumpf(manifest, fname, indent=4, sort_keys=True)
