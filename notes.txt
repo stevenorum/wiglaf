@@ -1,0 +1,14 @@
+Steps:
+
+-script creates CF stack and waits for it to finish launching
+-script grabs the following info from the stack and sticks it into the file "configuration.json" in the results bucket:
+--ASG
+--sns_topic (if customer provided an email address)
+-script also adds the following that were provided by the customer:
+--number_of_files
+-script uploads the wiglaf lambda code to the results bucket
+-script updates the CF stack to contain the wiglaf lambda, and waits for that to finish.
+-script bundles up the user's script and data and pushes it to S3 at bucket/resources.tgz
+--wiglaf script will detect this uploads and scale up the ASG
+--Each host will push contents to the S3 bucket.
+--Once the necessary number of files has been uploaded, wiglaf will write a results file to the bucket with presigned URLs for all the result files, email the user the results, and scale down the ASG.
