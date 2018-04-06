@@ -42,13 +42,13 @@ class Wiglaf(object):
             logging.getLogger(noisy).level = logging.WARN
             pass
 
-    def create(self, *args, **kwargs):
+    def create_cluster(self, *args, **kwargs):
         return wiglaf.cloudformation.launch_cluster_stack(skip_create=False, **self.config)
 
-    def update(self, *args, **kwargs):
+    def update_cluster(self, *args, **kwargs):
         return wiglaf.cloudformation.launch_cluster_stack(skip_create=True, **self.config)
 
-    def describe(self, *args, **kwargs):
+    def describe_cluster(self, *args, **kwargs):
         print(json.dumps(wiglaf.cloudformation.get_stack_info(**self.config), indent=4, sort_keys=True))
 
     def generate_manifest(self, *args, **kwargs):

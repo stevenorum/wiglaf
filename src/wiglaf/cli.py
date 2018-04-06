@@ -20,13 +20,13 @@ class WiglafDispatcher(CLIDispatcher):
     ]
 
     operation_info={
-        'create':{
+        'create-cluster':{
             'help':'Create a new Wiglaf cluster.'
         },
-        'update':{
+        'update-cluster':{
             'help':'Update an existing Wiglaf cluster.'
         },
-        'describe':{
+        'describe-cluster':{
             'help':'Print information about an existing Wiglaf cluster.'
         },
         'generate-manifest':{
