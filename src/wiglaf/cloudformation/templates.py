@@ -254,6 +254,9 @@ WIGLAF_TEMPLATE = {
         },
         "DataBucket":{
             "Value":{"Ref":"DataBucket"}
+        },
+        "AutoScalingGroup":{
+            "Value":{"Ref":"AutoScalingGroup"}
         }
     }
 }

@@ -4,6 +4,7 @@ import hashlib
 import logging
 import time
 import traceback
+import wiglaf.s3
 
 from calvin import json
 from calvin.aws.lambda_deployment import create_zipfile
@@ -61,7 +62,7 @@ def update_stack(cluster_name, template, params, **kwargs):
 def launch_cluster_stack(cluster_name,
                          image_id=None,
                          instance_type=None,
-                         instance_count=None,
+                         max_size=None,
                          email_address=None,
                          key_name=None,
                          skip_create=False,
@@ -73,7 +74,7 @@ def launch_cluster_stack(cluster_name,
         "KeyName":key_name,
         "ImageId":image_id,
         "InstanceType":instance_type,
-        "InstanceCount":instance_count,
+        "MaxInstanceCount":max_size,
     }
     transitional_template = copy.deepcopy(template)
     del transitional_template["Resources"]["DataBucket"]["Properties"]["NotificationConfiguration"]
@@ -92,3 +93,37 @@ def launch_cluster_stack(cluster_name,
     logging.info("Updating stack to include S3 data bucket notifications.")
     outputs = update_stack(cluster_name, template, params)
     logging.info("Data bucket: {}".format(outputs["DataBucket"]))
+
+def get_stack_info(cluster_name, profile, region, **kwargs):
+    cf = boto3.client("cloudformation")
+    asg = boto3.client("autoscaling")
+    # TODO: Add nice error handling for invalid permissions or nonexistent stack.
+    response = cf.describe_stacks(StackName=cluster_name)
+    stack = response["Stacks"][0]
+    params = {p["ParameterKey"]:p["ParameterValue"] for p in stack["Parameters"]}
+    outputs = {op["OutputKey"]:op["OutputValue"] for op in stack["Outputs"]}
+    asg_response = asg.describe_auto_scaling_groups(AutoScalingGroupNames=[outputs["AutoScalingGroup"]])
+    as_group = asg_response["AutoScalingGroups"][0]
+    max_size = as_group["MaxSize"]
+    current_size = as_group["DesiredCapacity"]
+    cluster_config = {
+        "email_address": params.get("EmailAddress"),
+        "key_name": params.get("KeyName"),
+        "instance_type": params.get("InstanceType"),
+        "image_id": params.get("ImageId"),
+        "max_size": int(params.get("MaxInstanceCount")),
+        "cluster_name": cluster_name,
+        "profile": profile,
+        "region": region,
+    }
+    cluster_state = {
+        "current_size": current_size,
+    }
+    if current_size != 0:
+        bucket = outputs["DataBucket"]
+        manifest = wiglaf.s3.load(bucket, "manifest.json")
+        cluster_state["current_job"] = manifest
+    return {
+        "config":cluster_config,
+        "state":cluster_state
+    }

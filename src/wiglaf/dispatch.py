@@ -17,7 +17,6 @@ required = [
 ]
 
 def load_config(**kwargs):
-    print(kwargs)
     conf = copy.deepcopy(defaults)
     if kwargs.get("config"):
         conf.update(json.loadf(kwargs["config"]))
@@ -44,16 +43,13 @@ class Wiglaf(object):
             pass
 
     def create(self, *args, **kwargs):
-        print("create called")
         return wiglaf.cloudformation.launch_cluster_stack(skip_create=False, **self.config)
 
     def update(self, *args, **kwargs):
-        print("update called")
         return wiglaf.cloudformation.launch_cluster_stack(skip_create=True, **self.config)
 
     def describe(self, *args, **kwargs):
-        print("describe called; currently a no-op")
-        pass
+        print(json.dumps(wiglaf.cloudformation.get_stack_info(**self.config), indent=4, sort_keys=True))
 
     def generate_manifest(self, *args, **kwargs):
         print("generate_manifest called")

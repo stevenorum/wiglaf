@@ -11,7 +11,7 @@ class WiglafDispatcher(CLIDispatcher):
         Argument('--cluster-name', default=None, help='The name of the cluster.  May be specified in the config file instead.'),
         Argument('--image-id', default=None, help='The base EC2 AMI to use for the nodes.  May be specified in the config file instead.'),
         Argument('--instance-type', default=None, help='The EC2 instance type for each node.  May be specified in the config file instead.'),
-        Argument('--instance-count', default=None, help='The maximum number of nodes at one time.  May be specified in the config file instead.'),
+        Argument('--max-size', default=None, help='The maximum number of nodes at one time.  May be specified in the config file instead.'),
         Argument('--email-address', default=None, help='An email address to notify when jobs finish.  May be specified in the config file instead.'),
         Argument('--key-name', default=None, help='The name of an EC2 SSH keypair.  May be specified in the config file instead.'),
         Argument('--profile', default=None, help='The AWS credential profile to use.  May be specified in the config file instead.'),
@@ -60,4 +60,5 @@ class WiglafDispatcher(CLIDispatcher):
         wig = Wiglaf(**kwargs)
         method = getattr(wig, action)
         response = method(**kwargs)
-        print(response)
+        if response:
+            print(response)
