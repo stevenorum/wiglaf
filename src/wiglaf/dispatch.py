@@ -42,6 +42,18 @@ class Wiglaf(object):
             logging.getLogger(noisy).level = logging.WARN
             pass
 
+    @property
+    def _data_bucket(self):
+        return wiglaf.cloudformation.describe_stack(**self.config)["Outputs"]["DataBucket"]
+
+    @property
+    def _cluster_name(self):
+        return self.config.get("cluster_name")
+
+    @property
+    def _job_name(self):
+        return self.config.get("job_name")
+
     def create_cluster(self, *args, **kwargs):
         return wiglaf.cloudformation.launch_cluster_stack(skip_create=False, **self.config)
 
@@ -51,34 +63,60 @@ class Wiglaf(object):
     def describe_cluster(self, *args, **kwargs):
         print(json.dumps(wiglaf.cloudformation.get_stack_info(**self.config), indent=4, sort_keys=True))
 
+    def delete_cluster(self, *args, **kwargs):
+        print("delete_cluster not yet implemented")
+        pass
+
+    def start_cluster(self, *args, **kwargs):
+        print("start_cluster not yet implemented")
+        pass
+
+    def stop_cluster(self, *args, **kwargs):
+        print("stop_cluster not yet implemented")
+        pass
+
     def generate_manifest(self, *args, **kwargs):
-        print("generate_manifest called")
+        print("generate_manifest not yet implemented")
         pass
 
     def erase_job(self, *args, **kwargs):
-        print("erase_job called")
+        print("erase_job not yet implemented")
+        pass
+
+    def erase_data(self, *args, **kwargs):
+        print("erase_data not yet implemented")
         pass
 
     def generate_report(self, *args, **kwargs):
-        print("generate_report called")
+        print("generate_report not yet implemented")
         pass
 
     def clear_results(self, *args, **kwargs):
-        print("clear_results called")
+        print("clear_results not yet implemented")
         pass
 
     def list_results(self, *args, **kwargs):
-        print("list_results called")
+        print("list_results not yet implemented")
         pass
 
     def download_results(self, *args, **kwargs):
-        print("download_results called")
+        print("download_results not yet implemented")
+        prefix = "/".join([self._data_bucket, "jobs", self._job_name, "results"])
+        return wiglaf.s3.download_results(**self.config)
         pass
 
     def start_job(self, *args, **kwargs):
-        print("start_job called")
+        print("start_job not yet implemented")
         pass
 
     def abort_job(self, *args, **kwargs):
-        print("abort_job called")
+        print("abort_job not yet implemented")
+        pass
+
+    def describe_job(self, *args, **kwargs):
+        print("describe_job not yet implemented")
+        pass
+
+    def bake_image(self, *args, **kwargs):
+        print("bake_image not yet implemented")
         pass

@@ -10,18 +10,29 @@ from calvin import json
 from calvin.aws.lambda_deployment import create_zipfile
 from .templates import WIGLAF_TEMPLATE
 
-def wait_for_stack(cluster_name, target_states=["CREATE_COMPLETE","UPDATE_COMPLETE"], **kwargs):
+def describe_stack(cluster_name, **kwargs):
     cf = boto3.client("cloudformation")
-    stack = cf.describe_stacks(StackName=cluster_name)["Stacks"][0]
+    try:
+        stack = cf.describe_stacks(StackName=cluster_name)["Stacks"][0]
+    except:
+        return None
+    stack["_Parameters"] = stack["Parameters"]
+    stack["_Outputs"] = stack["_Outputs"]
+    stack["Outputs"] = {op["OutputKey"]:op["OutputValue"] for op in stack["_Outputs"]}
+    stack["Parameters"] = {p["ParameterKey"]:p["ParameterValue"] for p in stack["_Parameters"]}
+    return stack
+
+def wait_for_stack(cluster_name, target_states=["CREATE_COMPLETE","UPDATE_COMPLETE"], **kwargs):
+    stack = describe_stack(cluster_name)
     status = stack["StackStatus"]
     while status.endswith("_IN_PROGRESS"):
         logging.debug("Stack '{}' in transitional state '{}'.  Sleeping for 5 seconds...".format(cluster_name, status))
         time.sleep(5)
-        stack = cf.describe_stacks(StackName=cluster_name)["Stacks"][0]
+        stack = describe_stack(cluster_name)
         status = stack["StackStatus"]
     logging.debug("Stack '{}' in stable state '{}'.".format(cluster_name, status))
     if status in ["CREATE_COMPLETE","UPDATE_COMPLETE"]:
-        return {op["OutputKey"]:op["OutputValue"] for op in stack["Outputs"]}
+        return stack
     else:
         raise RuntimeError("Stack {} is in unexpected state {}!".format(cluster_name, status))
 
@@ -79,29 +90,27 @@ def launch_cluster_stack(cluster_name,
     transitional_template = copy.deepcopy(template)
     del transitional_template["Resources"]["DataBucket"]["Properties"]["NotificationConfiguration"]
     if skip_create:
-        outputs = wait_for_stack(cluster_name)
+        stack = wait_for_stack(cluster_name)
     else:
         logging.info("Creating initial stack.")
-        outputs = create_stack(cluster_name, transitional_template, params)
+        stack = create_stack(cluster_name, transitional_template, params)
     logging.info("Uploading lambda function code to lambda bucket.")
     body = create_zipfile("lambda/")
     lambda_key = "lambda.{}.zip".format(hashlib.md5(body).hexdigest())
-    boto3.client("s3").put_object(Bucket=outputs["LambdaBucket"], Key=lambda_key, Body=body)
+    boto3.client("s3").put_object(Bucket=stack["Outputs"]["LambdaBucket"], Key=lambda_key, Body=body)
     params["LambdaS3Key"] = lambda_key
     logging.info("Updating stack to include Lambda function and permissions.")
     outputs = update_stack(cluster_name, transitional_template, params)
     logging.info("Updating stack to include S3 data bucket notifications.")
     outputs = update_stack(cluster_name, template, params)
-    logging.info("Data bucket: {}".format(outputs["DataBucket"]))
+    logging.info("Data bucket: {}".format(stack["Outputs"]["DataBucket"]))
 
 def get_stack_info(cluster_name, profile, region, **kwargs):
-    cf = boto3.client("cloudformation")
     asg = boto3.client("autoscaling")
     # TODO: Add nice error handling for invalid permissions or nonexistent stack.
-    response = cf.describe_stacks(StackName=cluster_name)
-    stack = response["Stacks"][0]
-    params = {p["ParameterKey"]:p["ParameterValue"] for p in stack["Parameters"]}
-    outputs = {op["OutputKey"]:op["OutputValue"] for op in stack["Outputs"]}
+    stack = describe_stack(cluster_name)
+    params = stack["Parameters"]
+    outputs = stack["Outputs"]
     asg_response = asg.describe_auto_scaling_groups(AutoScalingGroupNames=[outputs["AutoScalingGroup"]])
     as_group = asg_response["AutoScalingGroups"][0]
     max_size = as_group["MaxSize"]
