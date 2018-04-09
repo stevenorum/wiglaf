@@ -1,5 +1,5 @@
 import boto3
-from calvin import json
+from calvin import files, json
 
 def bucket_and_key(bucket, key, *args, **kwargs):
     bucket = bucket if not bucket.startswith("s3://") else bucket[5:]
@@ -10,6 +10,13 @@ def bucket_and_key(bucket, key, *args, **kwargs):
         else:
             raise RuntimeError("Must specify either a full file path or a bucket and key!")
     return bucket, key
+
+def remove_prefix(filename, prefix):
+    prefix = prefix.strip("/")
+    filename = filename.strip("/")
+    if len(prefix) >= len(filename):
+        return ""
+    return filename[len(prefix):].strip("/")
 
 def body(*args, **kwargs):
     bucket, key = bucket_and_key(*args, **kwargs)
@@ -44,5 +51,27 @@ def delete_file(bucket, prefix, *args, **kwargs):
 def list_bucket(bucket, prefix, *args, **kwargs):
     pass
 
-def download_results():
-    pass
+def list_files(bucket, prefix=""):
+    s3 = boto3.client("s3")
+    response = s3.list_objects_v2(
+        Bucket=bucket,
+        Prefix=prefix,
+        MaxKeys=1000,
+    )
+    objects = response.get('Contents', [])
+    token = response.get('NextContinuationToken', None)
+    while token:
+        response = s3.list_objects_v2(
+            Bucket=bucket,
+            Prefix=prefix,
+            MaxKeys=1000,
+            ContinuationToken=token
+        )
+        objects.extend(response['Contents'])
+        token = response.get('NextContinuationToken', None)
+    return objects
+
+def download_files(bucket, prefix, directory):
+    for fileobj in list_files(bucket=bucket, prefix=prefix):
+        files.writeb(os.path.join(directory, remove_prefix(filename=fileobj["Key"], prefix=prefix)),
+                     body(bucket=bucket, key=fileobj["Key"]).read())

@@ -19,19 +19,18 @@ def parse_args():
     parser.add_argument("--name",
                         help='Name for the cluster.',
                         required=True)
-    parser.add_argument("--job",
-                        help='Name of the job whose results you want to clear.',
+    parser.add_argument("--prefix",
+                        help='Prefix to delete.',
                         required=True)
     return parser.parse_args()
 
-def clear_results(stack_name, job_name):
+def erase_prefix(stack_name, prefix):
     cf = boto3.client("cloudformation")
     s3 = boto3.client("s3")
     stack = cf.describe_stacks(StackName=stack_name)["Stacks"][0]
     outputs = {op["OutputKey"]:op["OutputValue"] for op in stack["Outputs"]}
     # Should update this to look through the stack resources and grab all buckets, but this'll work for now.
     bucket = outputs["DataBucket"]
-    prefix = "jobs/{}/".format(job_name)
     response = s3.list_objects_v2(
         Bucket=bucket,
         Prefix=prefix,
@@ -61,7 +60,7 @@ def clear_results(stack_name, job_name):
 def main():
     args = parse_args()
     boto3.setup_default_session(region_name=args.region, profile_name=args.profile)
-    clear_results(stack_name=args.name, job_name=args.job)
+    erase_prefix(stack_name=args.name, prefix=args.prefix)
     pass
 
 if __name__ == "__main__":

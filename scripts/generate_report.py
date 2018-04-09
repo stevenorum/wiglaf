@@ -29,24 +29,24 @@ def generate(bucket_name, job_name):
     s3 = boto3.client('s3')
     manifest_key = "jobs/{job_name}/resources/wiglaf_manifest.json".format(job_name=job_name)
     manifest_object = s3.get_object(Bucket=bucket_name, Key=manifest_key)
-    # results_prefix = 'jobs/{job_name}/results/'.format(job_name=job_name)
-    # response = s3.list_objects_v2(
-    #     Bucket=bucket_name,
-    #     MaxKeys=1000,
-    #     Prefix=results_prefix,
-    # )
-    # objects = response['Contents']
-    # token = response.get('NextContinuationToken', None)
-    # while token:
-    #     response = s3.list_objects_v2(
-    #         Bucket=bucket_name,
-    #         MaxKeys=1000,
-    #         Prefix=results_prefix,
-    #         ContinuationToken=token
-    #     )
-    #     objects.extend(response['Contents'])
-    #     token = response.get('NextContinuationToken', None)
-    # links = [s3.generate_presigned_url(ClientMethod='get_object',Params={'Bucket':bucket_name,'Key':obj['Key']},ExpiresIn=60*60*24) for obj in objects]
+    results_prefix = 'jobs/{job_name}/results/'.format(job_name=job_name)
+    response = s3.list_objects_v2(
+        Bucket=bucket_name,
+        MaxKeys=1000,
+        Prefix=results_prefix,
+    )
+    objects = response['Contents']
+    token = response.get('NextContinuationToken', None)
+    while token:
+        response = s3.list_objects_v2(
+            Bucket=bucket_name,
+            MaxKeys=1000,
+            Prefix=results_prefix,
+            ContinuationToken=token
+        )
+        objects.extend(response['Contents'])
+        token = response.get('NextContinuationToken', None)
+    links = [s3.generate_presigned_url(ClientMethod='get_object',Params={'Bucket':bucket_name,'Key':obj['Key']},ExpiresIn=60*60*24) for obj in objects]
 
     start_dt = manifest_object["LastModified"]
     end_dt = datetime.now(timezone.utc)
@@ -60,7 +60,7 @@ def generate(bucket_name, job_name):
         "Links to output files:",
         ""
     ]
-    # message_lines.extend(links)
+    message_lines.extend(links)
     print("\n".join(message_lines))
 
 def pretty_delta(td):

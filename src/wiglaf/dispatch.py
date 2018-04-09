@@ -101,9 +101,8 @@ class Wiglaf(object):
 
     def download_results(self, *args, **kwargs):
         print("download_results not yet implemented")
-        prefix = "/".join([self._data_bucket, "jobs", self._job_name, "results"])
-        return wiglaf.s3.download_results(**self.config)
-        pass
+        prefix = "/".join(["jobs", self._job_name, "results"])
+        return wiglaf.s3.download_files(bucket=self._data_bucket, prefix=prefix, directory=self.config.get("results_directory"))
 
     def start_job(self, *args, **kwargs):
         print("start_job not yet implemented")
